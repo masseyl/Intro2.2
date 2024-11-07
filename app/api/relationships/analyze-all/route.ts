@@ -115,10 +115,19 @@ Return as JSON:
 }`
             }
           ],
-          temperature: 0.7
+          temperature: 0.7,
+          response_format: { type: "json_object" }
         });
 
-        const relationship = JSON.parse(response.choices[0].message?.content || '{}');
+        let relationship;
+        try {
+          const content = response.choices[0].message?.content || '{}';
+          relationship = JSON.parse(content.trim());
+        } catch (e) {
+          console.error('Failed to parse relationship JSON:', content);
+          throw new Error('Invalid relationship data returned');
+        }
+
         relationships.push(relationship);
         console.log('Added relationship:', relationship);
       }

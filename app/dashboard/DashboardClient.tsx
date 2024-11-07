@@ -1,7 +1,6 @@
 'use client'
 
 import UserProfile from "../../components/UserProfile"
-import GraphVisualization from "../../components/GraphVisualization"
 import EmailList from "../../components/EmailList"
 import { User } from "next-auth"
 import { useRelationshipsStore } from "../../lib/store"
@@ -44,7 +43,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
         <UserProfile user={user} />
       </div>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-2">
+        {/* <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-2">
           {stats.map((item) => (
             <div key={item.name} className="p-4 bg-white rounded-lg shadow-md">
               <div className="flex items-center">
@@ -69,9 +68,9 @@ export default function DashboardClient({ user }: DashboardClientProps) {
               </div>
             </div>
           ))}
-        </div>
+        </div> */}
 
-        <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
+        <div className="mt-8 grid grid-cols-1 gap-8 ">
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
             <div className="p-6 border-b border-gray-100">
               <h3 className="text-lg font-medium leading-6 text-gray-900">
@@ -83,20 +82,6 @@ export default function DashboardClient({ user }: DashboardClientProps) {
             </div>
             <div className="px-6 py-4">
               <EmailList />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-gray-100">
-              <h3 className="text-lg font-medium leading-6 text-gray-900">
-                Network Visualization
-              </h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Interactive visualization of your email relationships
-              </p>
-            </div>
-            <div className="p-6">
-              <GraphVisualization />
             </div>
           </div>
         </div>
