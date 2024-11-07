@@ -62,14 +62,13 @@ export default function EmailList() {
 
   const processEmailsWithAI = async (emails: any[]) => {
     if (!emails || emails.length === 0) return;
-
     try {
       const response = await fetch('/api/emails/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ emails }),
       });
-
+      console.log('processEmailsWithAI: resposne', response)
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
 
