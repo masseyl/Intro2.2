@@ -133,7 +133,7 @@ Return a JSON profile with this format:
 
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
@@ -188,7 +188,7 @@ export async function POST(request: Request) {
         const chunkInsights = [];
         for (const chunk of emailChunks) {
           const response = await openai.chat.completions.create({
-            model: 'gpt-4o',
+            model: 'gpt-4o-mini',
             messages: [
               {
                 role: 'system',

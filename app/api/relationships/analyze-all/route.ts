@@ -1,119 +1,132 @@
 import { NextResponse } from 'next/server';
-import clientPromise from '../../../../lib/mongodb';
-import { Configuration, OpenAIApi } from 'openai';
+import OpenAI from 'openai';
 
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY!,
+// Initialize the OpenAI client with your API key
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
 });
-const openai = new OpenAIApi(configuration);
 
-export async function POST() {
+function extractEmail(emailString: string): string {
+  // Extract email from format "Name <email@domain.com>" or just "email@domain.com"
+  const match = emailString.match(/<(.+?)>/) || [null, emailString];
+  return match[1].toLowerCase();
+}
+
+export async function POST(request: Request) {
   try {
-    const client = await clientPromise;
-    const db = client.db();
+    const { profiles, emails } = await request.json();
+    console.log('Received:', { 
+      profileCount: profiles.length, 
+      emailCount: emails.length 
+    });
+    
+    const relationships = [];
+    
+    // Create interaction map
+    const interactionMap = new Map();
+    emails.forEach(email => {
+      console.log('Processing email:', { 
+        from: email.from, 
+        to: email.to,
+        subject: email.subject 
+      });
+      
+      const sender = extractEmail(email.from);
+      const recipients = Array.isArray(email.to) ? email.to : [email.to];
+      
+      recipients.forEach(recipient => {
+        const recipientEmail = extractEmail(recipient);
+        const pairKey = [sender, recipientEmail].sort().join('->');
+        
+        if (!interactionMap.has(pairKey)) {
+          interactionMap.set(pairKey, []);
+        }
+        interactionMap.get(pairKey).push({
+          from: email.from,
+          to: recipient,
+          subject: email.subject,
+          body: email.snippet || email.body || '',
+          date: email.date
+        });
+      });
+    });
 
-    const users = await db.collection('users').find().toArray();
+    console.log('Interaction map size:', interactionMap.size);
+    console.log('Interaction pairs:', Array.from(interactionMap.keys()));
 
-    const userPairs = [];
+    // Generate relationships for each profile pair
+    for (let i = 0; i < profiles.length; i++) {
+      for (let j = i + 1; j < profiles.length; j++) {
+        const personA = profiles[i];
+        const personB = profiles[j];
+        
+        console.log('Analyzing pair:', {
+          personA: personA.email,
+          personB: personB.email
+        });
+        
+        // Get interactions between this pair using just email addresses
+        const pairKey = [
+          personA.email.toLowerCase(),
+          personB.email.toLowerCase()
+        ].sort().join('->');
+        
+        const interactions = interactionMap.get(pairKey) || [];
 
-    // Generate all unique pairs of users
-    for (let i = 0; i < users.length; i++) {
-      for (let j = i + 1; j < users.length; j++) {
-        userPairs.push([users[i], users[j]]);
+        console.log('Found interactions:', interactions.length);
+
+        if (interactions.length === 0) {
+          console.log('Skipping pair - no interactions:', pairKey);
+          continue;
+        }
+
+        const response = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert relationship analyst. Return only valid JSON.'
+            },
+            {
+              role: 'user',
+              content: `Analyze the relationship between these two people based on their profiles and email interactions:
+
+Person A: ${JSON.stringify(personA)}
+Person B: ${JSON.stringify(personB)}
+
+Email Interactions Sample:
+${interactions.slice(0, 3).map(email => `
+From: ${email.from}
+To: ${email.to}
+Subject: ${email.subject}
+Content: ${email.body}
+`).join('\n---\n')}
+
+Return as JSON:
+{
+  "source": "${personA.email}",
+  "target": "${personB.email}",
+  "shared_interests": ["interest1", "interest2"],
+  "connection_points": ["point1", "point2"],
+  "relationship_strength": {
+    "score": 1-10,
+    "reasoning": "brief explanation"
+  }
+}`
+            }
+          ],
+          temperature: 0.7
+        });
+
+        const relationship = JSON.parse(response.choices[0].message?.content || '{}');
+        relationships.push(relationship);
+        console.log('Added relationship:', relationship);
       }
     }
 
-    const relationshipPromises = userPairs.map(async ([userA, userB]) => {
-      const interactions = await db
-        .collection('emails')
-        .find({
-          $or: [
-            { 'sender.email': userA.email, 'recipients.email': userB.email },
-            { 'sender.email': userB.email, 'recipients.email': userA.email },
-          ],
-        })
-        .toArray();
-
-      if (interactions.length === 0) {
-        return null;
-      }
-
-      const analysis = await analyzeRelationship(interactions);
-      const strength = await calculateConnectionStrength(analysis);
-
-      // Save analysis to relationships collection
-      await db.collection('relationships').updateOne(
-        { userAId: userA.email, userBId: userB.email },
-        { $set: { analysis, strength, updatedAt: new Date() } },
-        { upsert: true }
-      );
-
-      return { userAId: userA.email, userBId: userB.email, analysis, strength };
-    });
-
-    await Promise.all(relationshipPromises);
-
-    return NextResponse.json({ message: 'Relationships analyzed successfully' });
+    return NextResponse.json({ success: true, relationships });
   } catch (error: any) {
     console.error('Error analyzing relationships:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
-}
-
-async function analyzeRelationship(interactions: any[]) {
-  const combinedInteractions = interactions.map(email => email.body).join('\n\n');
-  const prompt = `
-Analyze the relationship between User A and User B based on the following email exchanges:
-
-Emails:
-"""${combinedInteractions}"""
-
-Determine:
-
-- Shared interests
-- Personality overlaps
-- Sense of humor
-- Quality of their interactions
-
-Provide the analysis in JSON format:
-{
-  "shared_interests": [],
-  "personality_overlaps": "",
-  "sense_of_humor": "",
-  "interaction_quality": ""
-}
-`;
-
-  const response = await openai.createCompletion({
-    model: 'text-davinci-003',
-    prompt: prompt,
-    max_tokens: 500,
-    temperature: 0,
-  });
-
-  const analysis = JSON.parse(response.data.choices[0].text.trim());
-  return analysis;
-}
-
-async function calculateConnectionStrength(analysis: any) {
-  const prompt = `
-Based on the following relationship analysis, rate the strength of the connection between User A and User B on a scale from 1 to 10.
-
-Relationship Analysis:
-"""${JSON.stringify(analysis)}"""
-
-Provide the strength as a single number.
-
-Strength:
-`;
-
-  const response = await openai.createCompletion({
-    model: 'text-davinci-003',
-    prompt: prompt,
-    max_tokens: 10,
-    temperature: 0,
-  });
-
-  const strength = parseFloat(response.data.choices[0].text.trim());
-  return strength;
 }

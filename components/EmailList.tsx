@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRelationshipsStore } from '../lib/store'
+import NetworkGraph from './NetworkGraph'
 
 export default function EmailList() {
   const today = new Date();
@@ -21,6 +22,7 @@ export default function EmailList() {
   const [relationshipProgress, setRelationshipProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [profiles, setProfiles] = useState<any[]>([])
+  const [relationships, setRelationships] = useState<any[]>([])
 
   const fetchEmails = async (token?: string) => {
     setLoading(true)
@@ -72,11 +74,35 @@ export default function EmailList() {
 
       const data = await response.json();
       if (data.success && data.data) {
-        setProfiles(prevProfiles => [...prevProfiles, ...data.data]);
+        const newProfiles = data.data;
+        setProfiles(prevProfiles => [...prevProfiles, ...newProfiles]);
+        
+        // Pass both the new profiles and their corresponding emails
+        await analyzeRelationships(newProfiles, emails);
       }
     } catch (error) {
       console.error('Error processing emails with AI:', error);
       setError(error.message);
+    }
+  };
+
+  const analyzeRelationships = async (profiles: any[], emailsToAnalyze: any[]) => {
+    try {
+      const response = await fetch('/api/relationships/analyze-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          profiles,
+          emails: emailsToAnalyze // Pass the actual emails we're analyzing
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setRelationships(data.relationships);
+      }
+    } catch (error) {
+      console.error('Error analyzing relationships:', error);
     }
   };
 
@@ -179,6 +205,13 @@ export default function EmailList() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {profiles.length > 0 && (
+        <div className="mt-8">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Relationship Network</h3>
+          <NetworkGraph profiles={profiles} relationships={relationships} />
         </div>
       )}
     </div>
