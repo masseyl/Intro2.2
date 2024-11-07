@@ -123,7 +123,7 @@ Return a JSON profile with this format:
 
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: 'gpt-4o',
         messages: [
           {
             role: 'system',
@@ -151,13 +151,76 @@ Return a JSON profile with this format:
 // Main route handler
 export async function POST(request: Request) {
   try {
-    const { emails, startDate, endDate } = await request.json();
-    const results = await getEmails(startDate, endDate);
-    const participants = extractUniqueParticipants(results);
-    const emailsByPerson = new Map(
-      participants.map(p => [p.email, results.filter(e => e.sender.email === p.email)])
-    );
-    const profiles = await generateAllProfiles(participants, emailsByPerson);
+    const { emails } = await request.json();
+    
+    // Group emails by sender
+    const emailsByPerson = new Map();
+    emails.forEach(email => {
+      const senderEmail = email.from;
+      if (!emailsByPerson.has(senderEmail)) {
+        emailsByPerson.set(senderEmail, []);
+      }
+      emailsByPerson.get(senderEmail).push(email);
+    });
+
+    // Generate profiles for each person
+    const profiles = [];
+    for (const [email, personEmails] of emailsByPerson) {
+      try {
+        // Chunk emails into smaller batches
+        const CHUNK_SIZE = 5; // Adjust based on average email size
+        const emailChunks = [];
+        for (let i = 0; i < personEmails.length; i += CHUNK_SIZE) {
+          emailChunks.push(personEmails.slice(i, i + CHUNK_SIZE));
+        }
+
+        // Process each chunk and collect insights
+        const chunkInsights = [];
+        for (const chunk of emailChunks) {
+          const response = await openai.chat.completions.create({
+            model: 'gpt-4o',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are an expert communication analyst. Return only valid JSON without markdown.'
+              },
+              {
+                role: 'user',
+                content: `Analyze these emails from ${email} and create a profile:
+                  ${chunk.map(e => `
+                    Subject: ${e.subject}
+                    Body: ${e.body}
+                  `).join('\n---\n')}
+                  
+                  Return as JSON:
+                  {
+                    "communication_style": "brief description",
+                    "interests": ["interest1", "interest2"],
+                    "personality_traits": ["trait1", "trait2"]
+                  }`
+              }
+            ],
+            temperature: 0.7
+          });
+
+          const insight = JSON.parse(cleanJsonResponse(response.choices[0].message?.content || '{}'));
+          chunkInsights.push(insight);
+        }
+
+        // Combine insights from all chunks
+        const combinedProfile = {
+          email: email,
+          name: personEmails[0].sender?.name || 'Unknown',
+          communication_style: chunkInsights[0].communication_style, // Use first chunk's style
+          interests: [...new Set(chunkInsights.flatMap(i => i.interests))], // Combine unique interests
+          personality_traits: [...new Set(chunkInsights.flatMap(i => i.personality_traits))] // Combine unique traits
+        };
+
+        profiles.push(combinedProfile);
+      } catch (error) {
+        console.error(`Error generating profile for ${email}:`, error);
+      }
+    }
     
     return NextResponse.json({ success: true, data: profiles });
   } catch (error: any) {
