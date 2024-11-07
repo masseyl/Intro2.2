@@ -50,41 +50,66 @@ export async function getSentEmails(
 
   const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
-  // First, get the list of message IDs
   const response = await gmail.users.messages.list({
     userId: 'me',
-    q: `after:${startDate} before:${endDate}`,
-    maxResults: 10,
+    q: `after:${startDate} before:${endDate} in:sent -in:chats`,
+    maxResults: 25,
     pageToken: pageToken,
   });
 
-  // Then, fetch the full content of each thread
   const messages = await Promise.all(
     (response.data.messages || []).map(async (message) => {
-      // Get the thread ID first
       const fullMessage = await gmail.users.messages.get({
         userId: 'me',
         id: message.id!,
         format: 'full',
+        metadataHeaders: ['From', 'To', 'Cc', 'Bcc', 'Subject', 'Date'],
+        fields: `
+          id,
+          internalDate,
+          payload(
+            headers(name,value),
+            parts(mimeType,body(data))
+          )
+        `.replace(/\s+/g, '')
       });
+      
+      const headers = fullMessage.data.payload?.headers || [];
+      const getHeader = (name: string) => 
+        headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '';
+      
+      // Split recipients on commas
+      const splitRecipients = (headerValue: string) => 
+        headerValue ? headerValue.split(',').map(r => r.trim()) : [];
 
-      // If there's a thread ID, fetch the entire thread
-      if (fullMessage.data.threadId) {
-        const thread = await gmail.users.threads.get({
-          userId: 'me',
-          id: fullMessage.data.threadId,
-          format: 'full',
-        });
-        
-        // Return the thread with all messages
-        return {
-          ...fullMessage.data,
-          thread: thread.data,
-        };
-      }
+      // Get all recipients in a single array
+      const allRecipients = [
+        ...splitRecipients(getHeader('to')),
+        ...splitRecipients(getHeader('cc')),
+        ...splitRecipients(getHeader('bcc'))
+      ];
 
-      // If no thread ID, just return the message
-      return fullMessage.data;
+      // Get the text/plain part
+      const textPart = fullMessage.data.payload?.parts?.find(
+        (part: any) => part.mimeType === 'text/plain'
+      );
+      
+      const body = textPart?.body?.data 
+        ? Buffer.from(textPart.body.data, 'base64').toString('utf-8')
+        : '';
+
+      return {
+        id: fullMessage.data.id,
+        from: getHeader('from'),
+        recipients: allRecipients, // All recipients in one array
+        // Keep individual fields for reference if needed
+        to: splitRecipients(getHeader('to')),
+        cc: splitRecipients(getHeader('cc')),
+        bcc: splitRecipients(getHeader('bcc')),
+        subject: getHeader('subject'),
+        date: getHeader('date'),
+        body
+      };
     })
   );
 
@@ -119,4 +144,43 @@ async function getToken() {
     throw new Error('Not authenticated');
   }
   return session.user.accessToken;
+}
+
+export async function fetchEmails(session: any, maxResults: number = 10) {
+  const gmail = google.gmail({ version: 'v1', auth: await getGmailClient(session) });
+  
+  const response = await gmail.users.messages.list({
+    userId: 'me',
+    maxResults,
+    labelIds: ['SENT'],
+    q: 'in:sent', // Double ensure we only get sent mail
+  });
+
+  const messages = await Promise.all(
+    (response.data.messages || []).map(async (message) => {
+      const fullMessage = await gmail.users.messages.get({
+        userId: 'me',
+        id: message.id,
+        format: 'full',
+        // Only get the fields we actually need
+        fields: `
+          id,
+          threadId,
+          internalDate,
+          payload(
+            headers(name,value),
+            body(data),
+            parts(mimeType,body(data)))
+          )
+        `.replace(/\s+/g, ''),
+      });
+      
+      return fullMessage.data;
+    })
+  );
+
+  return {
+    messages,
+    nextPageToken: response.data.nextPageToken,
+  };
 }

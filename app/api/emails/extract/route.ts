@@ -83,7 +83,7 @@ For each participant, provide a detailed profile in the following format:
 Return an array of profiles for all participants.`;
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: 'gpt-4o',
     messages: [
       {
         role: 'system',
@@ -129,7 +129,7 @@ For each relationship pair, provide an analysis in the following format:
 Return an array of relationship analyses for all pairs.`;
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: 'gpt-4o',
     messages: [
       {
         role: 'system',
@@ -147,62 +147,125 @@ Return an array of relationship analyses for all pairs.`;
   return JSON.parse(cleanJsonResponse(response.choices[0].message?.content || '[]'));
 }
 
+function stripUnnecessaryProps(obj: any): any {
+  if (!obj) return obj;
+  
+  // If it's an array, map over it
+  if (Array.isArray(obj)) {
+    return obj.map(item => stripUnnecessaryProps(item));
+  }
+  
+  // If it's an object, recursively clean it
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      // Skip headers and other unnecessary properties
+      if (['headers', 'sizeEstimate', 'historyId', 'labelIds'].includes(key)) {
+        continue;
+      }
+      
+      // Keep only essential payload properties
+      if (key === 'payload') {
+        cleaned[key] = {
+          mimeType: value.mimeType,
+          body: value.body,
+          parts: stripUnnecessaryProps(value.parts)
+        };
+        continue;
+      }
+      
+      cleaned[key] = stripUnnecessaryProps(value);
+    }
+    return cleaned;
+  }
+  
+  return obj;
+}
+
+async function processEmails(rawEmails: any[]) {
+  // Step 1: Strip unnecessary data and clean
+  const strippedEmails = rawEmails
+    .map(stripUnnecessaryProps)
+    .filter(email => {
+      // Filter out empty messages
+      const body = extractEmailText(email);
+      return body && body.trim().length > 0;
+    });
+
+  // Step 2: Basic extraction and cleaning
+  const cleanedEmails = strippedEmails.map(email => ({
+    messageId: email.id,
+    threadId: email.threadId,
+    body: extractEmailText(email),
+    internalDate: email.internalDate,
+    headers: email.payload?.headers || []
+  }));
+
+  // Step 2: Deduplicate by thread and extract metadata
+  const threadMap = new Map();
+  cleanedEmails.forEach(email => {
+    const existingEmail = threadMap.get(email.threadId);
+    if (!existingEmail || parseInt(email.internalDate) > parseInt(existingEmail.internalDate)) {
+      const headers = email.headers;
+      threadMap.set(email.threadId, {
+        messageId: email.messageId,
+        threadId: email.threadId,
+        date: new Date(parseInt(email.internalDate)).toISOString(),
+        sender: extractEmailAddress(headers.find(h => h.name.toLowerCase() === 'from')?.value || ''),
+        recipients: extractEmailAddresses(headers.find(h => h.name.toLowerCase() === 'to')?.value || ''),
+        subject: headers.find(h => h.name.toLowerCase() === 'subject')?.value || '',
+        body: email.body
+      });
+    }
+  });
+
+  // Step 3: Convert to array and return
+  return Array.from(threadMap.values());
+}
+
 // Main route handler
 export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
-  
-  if (!session?.accessToken) {
-    console.log("No access token found in session");
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-  }
+  const encoder = new TextEncoder();
+  const stream = new TransformStream();
+  const writer = stream.writable.getWriter();
+
+  const sendUpdate = async (type: string, data: any) => {
+    await writer.write(
+      encoder.encode(`data: ${JSON.stringify({ type, data })}\n\n`)
+    );
+  };
 
   try {
     const { emails } = await request.json();
-    const extractedEmails = await Promise.all(emails.map(extractEntities));
+    const BATCH_SIZE = 5;
+    const results = [];
     
-    // Deduplicate messages within threads
-    const threadMap = new Map();
-    extractedEmails.forEach(email => {
-      if (!threadMap.has(email.threadId)) {
-        threadMap.set(email.threadId, email);
-      }
-    });
+    // Process emails in batches and send updates
+    for (let i = 0; i < emails.length; i += BATCH_SIZE) {
+      const batch = emails.slice(i, i + BATCH_SIZE);
+      const processedBatch = await processEmails(batch);
+      results.push(...processedBatch);
+      
+      await sendUpdate('emails', {
+        processed: i + batch.length,
+        total: emails.length,
+        latestBatch: processedBatch
+      });
+    }
     
-    const uniqueEmails = Array.from(threadMap.values());
-    
-    // Get all unique participants
-    const participants = extractUniqueParticipants(uniqueEmails);
-    
-    // Generate profiles for each participant
-    const profiles = await Promise.all(
-      participants.map(async participant => {
-        // Filter emails where this person is sender or recipient
-        const relevantEmails = uniqueEmails.filter(email => 
-          email.sender?.email === participant.email ||
-          email.recipients?.some((r: any) => r.email === participant.email)
-        );
-        
-        const profile = await generateAllProfiles([participant], new Map([[participant.email, relevantEmails]]));
-        return {
-          participant,
-          profile
-        };
-      })
-    );
-
-    // Generate relationship graph
+    // Process relationships with updates
+    const participants = extractUniqueParticipants(results);
     const relationships = [];
+    const totalRelationships = (participants.length * (participants.length - 1)) / 2;
+    let processedRelationships = 0;
+    
     for (let i = 0; i < participants.length; i++) {
       for (let j = i + 1; j < participants.length; j++) {
         const person1 = participants[i];
         const person2 = participants[j];
-        
-        // Find emails between these two people
-        const relevantEmails = uniqueEmails.filter(email =>
-          (email.sender?.email === person1.email && 
-           email.recipients?.some((r: any) => r.email === person2.email)) ||
-          (email.sender?.email === person2.email && 
-           email.recipients?.some((r: any) => r.email === person1.email))
+        const relevantEmails = results.filter(email => 
+          isParticipantInEmail(email, person1) && 
+          isParticipantInEmail(email, person2)
         );
         
         if (relevantEmails.length > 0) {
@@ -211,59 +274,42 @@ export async function POST(request: Request) {
             person2,
             emails: relevantEmails
           }]);
-          relationships.push({
+          
+          const newRelationship = {
             participants: [person1, person2],
-            analysis: analysis[0] // Take first result since we're only analyzing one pair
+            analysis: analysis[0]
+          };
+          relationships.push(newRelationship);
+          
+          processedRelationships++;
+          await sendUpdate('relationship', {
+            processed: processedRelationships,
+            total: totalRelationships,
+            latest: newRelationship
           });
         }
       }
     }
 
-    // Save to database
-    const client = await clientPromise;
-    const db = client.db();
-    
-    // Save all profiles
-    await Promise.all(profiles.map(({ participant, profile }) =>
-      db.collection('profiles').updateOne(
-        { email: participant.email },
-        { 
-          $set: {
-            ...profile,
-            name: participant.name,
-            email: participant.email,
-            userId: session.user?.id,
-            updatedAt: new Date()
-          }
-        },
-        { upsert: true }
-      )
-    ));
-    
-    // Save relationship graph
-    await db.collection('relationships').updateOne(
-      { userId: session.user?.id },
-      { 
-        $set: {
-          relationships,
-          updatedAt: new Date()
-        }
+    await writer.close();
+    return new Response(stream.readable, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
       },
-      { upsert: true }
-    );
-
-    return NextResponse.json({ 
-      results: extractedEmails,
-      profiles,
-      relationships
     });
     
   } catch (error: any) {
-    console.error('Error during processing:', error);
-    return NextResponse.json(
-      { error: 'Failed to process emails: ' + error.message },
-      { status: 500 }
-    );
+    await sendUpdate('error', { message: error.message });
+    await writer.close();
+    return new Response(stream.readable, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    });
   }
 }
 
@@ -272,80 +318,30 @@ function extractEmailText(email: any): string {
   // If this is a threaded message, combine all messages in the thread
   if (email.thread && email.thread.messages) {
     return email.thread.messages
-      .map((message: any) => {
-        const parts = message.payload?.parts || [];
-        let encodedBody = '';
-
-        const findPlainTextPart = (parts: any[]): any => {
-          for (const part of parts) {
-            if (part.mimeType === 'text/plain') {
-              return part;
-            } else if (part.parts) {
-              const found = findPlainTextPart(part.parts);
-              if (found) return found;
-            }
-          }
-          return null;
-        };
-
-        const textPart = findPlainTextPart(parts);
-        if (textPart) {
-          encodedBody = textPart.body?.data || '';
-        } else {
-          encodedBody = message.payload?.body?.data || '';
-        }
-
-        const decodedBody = Buffer.from(encodedBody || '', 'base64').toString('utf-8');
-        return decodedBody;
-      })
+      .map((message: any) => extractSingleMessageText(message))
+      .filter(Boolean)  // Remove any null/undefined/empty messages
       .join('\n\n--- Next Message ---\n\n');
   }
-
+  
   // If not a thread, process as single message
-  const parts = email.payload?.parts || [];
-  let encodedBody = '';
-
-  const findPlainTextPart = (parts: any[]): any => {
-    for (const part of parts) {
-      if (part.mimeType === 'text/plain') {
-        return part;
-      } else if (part.parts) {
-        const found = findPlainTextPart(part.parts);
-        if (found) return found;
-      }
-    }
-    return null;
-  };
-
-  const textPart = findPlainTextPart(parts);
-  if (textPart) {
-    encodedBody = textPart.body?.data || '';
-  } else {
-    encodedBody = email.payload?.body?.data || '';
-  }
-
-  const decodedBody = Buffer.from(encodedBody || '', 'base64').toString('utf-8');
-  return decodedBody;
+  return extractSingleMessageText(email);
 }
 
-async function extractEntities(email: any) {
-  // Extract headers first
-  const headers = email.payload?.headers || [];
-  const getHeader = (name: string) => headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '';
+function extractSingleMessageText(message: any): string {
+  // Just log the raw message structure first so we can see what we're dealing with
+  console.log('Raw message structure:', JSON.stringify(message, null, 2));
   
-  // Get body text using existing extractEmailText function
-  const bodyText = extractEmailText(email);
-
-  // Create structured email object directly without using OpenAI
-  return {
-    sender: extractEmailAddress(getHeader('from')),
-    recipients: extractEmailAddresses(getHeader('to')),
-    date: getHeader('date'),
-    subject: getHeader('subject'),
-    body: bodyText,
-    messageId: email.id,
-    threadId: email.threadId
-  };
+  if (!message.payload) return '';
+  
+  // Let's look at what's in the payload
+  console.log('Payload:', JSON.stringify(message.payload, null, 2));
+  
+  // And specifically what's in parts
+  if (message.payload.parts) {
+    console.log('Parts:', JSON.stringify(message.payload.parts, null, 2));
+  }
+  
+  return 'Debug mode - check console logs';
 }
 
 // Helper functions to parse email addresses
@@ -359,4 +355,16 @@ function extractEmailAddress(headerValue: string) {
 
 function extractEmailAddresses(headerValue: string) {
   return headerValue.split(/,\s*/).map(addr => extractEmailAddress(addr));
+}
+
+function isParticipantInEmail(email: any, participant: EmailParticipant) {
+  // Check if participant is sender
+  if (email.sender?.email === participant.email) {
+    return true;
+  }
+  
+  // Check if participant is in recipients
+  return email.recipients?.some((recipient: any) => 
+    recipient.email === participant.email
+  ) || false;
 }

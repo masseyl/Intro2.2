@@ -4,11 +4,22 @@ import { useState } from 'react'
 import { useRelationshipsStore } from '../lib/store'
 
 export default function EmailList() {
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const today = new Date();
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(today.getFullYear() - 1);
+
+  const formatDate = (date: Date) => {
+    return date.toISOString().split('T')[0];
+  };
+
+  const [startDate, setStartDate] = useState(formatDate(oneYearAgo));
+  const [endDate, setEndDate] = useState(formatDate(today));
   const [emails, setEmails] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [pageToken, setPageToken] = useState<string | null>(null)
+  const [processedEmails, setProcessedEmails] = useState<any[]>([])
+  const [relationshipProgress, setRelationshipProgress] = useState(0)
+  const [error, setError] = useState<string | null>(null)
 
   const fetchEmails = async (token?: string) => {
     setLoading(true)
@@ -50,33 +61,54 @@ export default function EmailList() {
   }
 
   const processEmailsWithAI = async (emails: any[]) => {
-    if (!emails || emails.length === 0) return
+    if (!emails || emails.length === 0) return;
 
     try {
       const response = await fetch('/api/emails/extract', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ emails }),
-      })
+      });
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        if (response.status === 401) {
-          window.location.href = '/api/auth/signin'
-          return
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      while (reader) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value);
+        const events = chunk.split('\n\n').filter(Boolean);
+        
+        for (const event of events) {
+          const data = JSON.parse(event.replace('data: ', ''));
+          
+          switch (data.type) {
+            case 'emails':
+              // Update progress bar or counter
+              setProcessedEmails(prev => [...prev, ...data.data.latestBatch]);
+              break;
+              
+            case 'relationship':
+              // Update network visualization
+              updateNetworkGraph(data.data.latest);
+              // Update progress for relationships
+              setRelationshipProgress(Math.round((data.data.processed / data.data.total) * 100));
+              break;
+              
+            case 'error':
+              console.error('Error:', data.data.message);
+              // Show error in UI
+              setError(data.data.message);
+              break;
+          }
         }
-        throw new Error(errorData.error || `Error: ${response.status}`)
       }
-
-      const result = await response.json()
-      console.log('AI processing result:', result)
     } catch (error) {
-      console.error('Error processing emails with AI:', error)
+      console.error('Error processing emails with AI:', error);
+      setError(error.message);
     }
-  }
+  };
 
   return (
     <div className="space-y-6">
@@ -111,7 +143,7 @@ export default function EmailList() {
       </div>
 
       <div className="space-y-4">
-        {emails.map((email) => (
+        {processedEmails.map((email) => (
           <div key={email.id} className="bg-gray-50 p-4 rounded-lg hover:bg-gray-100 transition-colors">
             <div className="font-medium text-gray-900">{email.subject}</div>
             <div className="text-sm text-gray-600">To: {email.to}</div>
