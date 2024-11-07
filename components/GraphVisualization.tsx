@@ -1,37 +1,38 @@
-'use client'
+'use client';
 
-import { useEffect, useRef } from 'react'
-import { useSelector } from 'react-redux'
-import { RootState } from '@/lib/store'
+import React, { useEffect, useRef } from 'react';
+import { Network } from 'vis-network/standalone';
+import { useRelationshipsStore } from '../lib/store';
 
 export default function GraphVisualization() {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const relationships = useSelector((state: RootState) => state.relationships.data)
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { nodes, edges, fetchGraphData } = useRelationshipsStore();
 
   useEffect(() => {
-    if (canvasRef.current) {
-      const ctx = canvasRef.current.getContext('2d')
-      if (ctx) {
-        // Clear the canvas
-        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
+    fetchGraphData();
+  }, [fetchGraphData]);
 
-        // Draw the graph here
-        // This is a placeholder - you'll need to implement the actual graph drawing logic
-        relationships.forEach((relationship, index) => {
-          ctx.beginPath()
-          ctx.arc(50 + index * 100, 100, 20, 0, 2 * Math.PI)
-          ctx.fillStyle = 'blue'
-          ctx.fill()
-          ctx.stroke()
-        })
-      }
+  useEffect(() => {
+    if (containerRef.current && nodes.length > 0 && edges.length > 0) {
+      const data = {
+        nodes,
+        edges,
+      };
+      const options = {
+        nodes: {
+          shape: 'dot',
+          size: 16,
+        },
+        edges: {
+          width: 2,
+        },
+        physics: {
+          stabilization: false,
+        },
+      };
+      new Network(containerRef.current, data, options);
     }
-  }, [relationships])
+  }, [nodes, edges]);
 
-  return (
-    <div className="mt-8">
-      <h2 className="text-2xl font-bold mb-4">Social Graph</h2>
-      <canvas ref={canvasRef} width={800} height={400} className="border border-gray-300"></canvas>
-    </div>
-  )
+  return <div ref={containerRef} style={{ height: '600px' }} />;
 }
