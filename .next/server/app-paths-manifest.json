@@ -1,5 +1,5 @@
 {
-  "/api/emails/route": "app/api/emails/route.js",
   "/api/emails/extract/route": "app/api/emails/extract/route.js",
+  "/api/emails/route": "app/api/emails/route.js",
   "/dashboard/page": "app/dashboard/page.js"
 }
