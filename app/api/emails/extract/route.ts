@@ -79,6 +79,16 @@ async function getEmails(startDate: string, endDate: string) {
   return [...sentEmails, ...inboxEmails];
 }
 
+// Add this helper function
+function getSenderInfo(email: any) {
+  const from = email.from || '';
+  const matches = from.match(/(.*?)\s*<(.+?)>/) || ['', '', from];
+  return {
+    name: matches[1].trim() || from.split('@')[0] || 'Unknown',
+    email: matches[2] || from
+  };
+}
+
 // Main profile generation function
 async function generateAllProfiles(participants: EmailParticipant[], emailsByPerson: Map<string, any[]>) {
   const profiles = [];
@@ -186,10 +196,11 @@ export async function POST(request: Request) {
               },
               {
                 role: 'user',
-                content: `Analyze these emails from ${email} and create a profile:
+                content: `Analyze these emails from ${email}:
                   ${chunk.map(e => `
+                    From: ${e.from}
                     Subject: ${e.subject}
-                    Body: ${e.body}
+                    Content: ${e.snippet || e.body || ''}
                   `).join('\n---\n')}
                   
                   Return as JSON:
@@ -208,12 +219,13 @@ export async function POST(request: Request) {
         }
 
         // Combine insights from all chunks
+        const senderInfo = getSenderInfo(personEmails[0]);
         const combinedProfile = {
-          email: email,
-          name: personEmails[0].sender?.name || 'Unknown',
-          communication_style: chunkInsights[0].communication_style, // Use first chunk's style
-          interests: [...new Set(chunkInsights.flatMap(i => i.interests))], // Combine unique interests
-          personality_traits: [...new Set(chunkInsights.flatMap(i => i.personality_traits))] // Combine unique traits
+          email: senderInfo.email,
+          name: senderInfo.name,
+          communication_style: chunkInsights[0].communication_style,
+          interests: [...new Set(chunkInsights.flatMap(i => i.interests))],
+          personality_traits: [...new Set(chunkInsights.flatMap(i => i.personality_traits))]
         };
 
         profiles.push(combinedProfile);

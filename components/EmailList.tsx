@@ -20,6 +20,7 @@ export default function EmailList() {
   const [processedEmails, setProcessedEmails] = useState<any[]>([])
   const [relationshipProgress, setRelationshipProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [profiles, setProfiles] = useState<any[]>([])
 
   const fetchEmails = async (token?: string) => {
     setLoading(true)
@@ -68,40 +69,10 @@ export default function EmailList() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ emails }),
       });
-      console.log('processEmailsWithAI: resposne', response)
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
 
-      while (reader) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        
-        const chunk = decoder.decode(value);
-        const events = chunk.split('\n\n').filter(Boolean);
-        
-        for (const event of events) {
-          const data = JSON.parse(event.replace('data: ', ''));
-          
-          switch (data.type) {
-            case 'emails':
-              // Update progress bar or counter
-              setProcessedEmails(prev => [...prev, ...data.data.latestBatch]);
-              break;
-              
-            case 'relationship':
-              // Update network visualization
-              updateNetworkGraph(data.data.latest);
-              // Update progress for relationships
-              setRelationshipProgress(Math.round((data.data.processed / data.data.total) * 100));
-              break;
-              
-            case 'error':
-              console.error('Error:', data.data.message);
-              // Show error in UI
-              setError(data.data.message);
-              break;
-          }
-        }
+      const data = await response.json();
+      if (data.success && data.data) {
+        setProfiles(prevProfiles => [...prevProfiles, ...data.data]);
       }
     } catch (error) {
       console.error('Error processing emails with AI:', error);
@@ -161,6 +132,53 @@ export default function EmailList() {
           >
             {loading ? 'Loading...' : 'Load More'}
           </button>
+        </div>
+      )}
+
+      {profiles.length > 0 && (
+        <div className="mt-8">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Generated Profiles</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {profiles.map((profile, index) => (
+              <div key={index} className="border rounded-lg p-4 hover:bg-gray-50">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <h4 className="font-medium text-gray-900">
+                      {profile.name !== 'Unknown' ? profile.name : profile.email}
+                    </h4>
+                    {profile.name !== 'Unknown' && (
+                      <p className="text-sm text-gray-500">{profile.email}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-2 text-sm text-gray-600">
+                  <p>
+                    <span className="font-medium">Communication Style:</span> {profile.communication_style}
+                  </p>
+                  <div>
+                    <span className="font-medium">Interests:</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {profile.interests?.map((interest: string, i: number) => (
+                        <span key={i} className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">
+                          {interest}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="font-medium">Personality Traits:</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {profile.personality_traits?.map((trait: string, i: number) => (
+                        <span key={i} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                          {trait}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
