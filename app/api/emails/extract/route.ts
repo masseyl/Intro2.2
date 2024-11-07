@@ -10,163 +10,144 @@ const openai = new OpenAI({
 
 // Helper function to clean JSON response
 function cleanJsonResponse(content: string): string {
-  // Remove markdown formatting
   return content
-    .replace(/```json\s*/g, '')  // Remove opening ```json
-    .replace(/```\s*$/g, '')     // Remove closing ```
-    .replace(/^```\s*/g, '')     // Remove any remaining ``` marks
+    .replace(/```json\s*/g, '')
+    .replace(/```\s*$/g, '')
+    .replace(/^```\s*/g, '')
     .trim();
 }
 
-async function generateProfile(emails: any[]) {
-  const combinedEmails = emails.map(email => `
-From: ${email.sender?.name || 'Unknown'} <${email.sender?.email || 'Unknown'}>
-Subject: ${email.subject || 'No Subject'}
-Body: ${email.body}
----
-`).join('\n');
+// Type definition
+type EmailParticipant = {
+  name: string;
+  email: string;
+};
+
+// Helper function to extract unique participants
+function extractUniqueParticipants(emails: any[]): EmailParticipant[] {
+  const participantsMap = new Map<string, EmailParticipant>();
+  
+  emails.forEach(email => {
+    if (email.sender?.email) {
+      participantsMap.set(email.sender.email, {
+        name: email.sender.name || 'Unknown',
+        email: email.sender.email
+      });
+    }
+    
+    if (Array.isArray(email.recipients)) {
+      email.recipients.forEach((recipient: any) => {
+        if (recipient.email) {
+          participantsMap.set(recipient.email, {
+            name: recipient.name || 'Unknown',
+            email: recipient.email
+          });
+        }
+      });
+    }
+  });
+  
+  return Array.from(participantsMap.values());
+}
+
+async function generateAllProfiles(participants: EmailParticipant[], emailsByPerson: Map<string, any[]>) {
+  const participantsData = participants.map(participant => ({
+    email: participant.email,
+    name: participant.name,
+    emails: emailsByPerson.get(participant.email) || []
+  }));
 
   const prompt = `
-As an expert in communication analysis and behavioral psychology, analyze these emails to create a detailed profile of the primary user. Focus on:
+Analyze the following email data for multiple participants. For each participant, create a detailed profile.
 
-1. Personal characteristics (personality traits, writing style, professional background)
-2. General demeanor and tone (formal/informal, friendly/professional, emotional range)
-3. Interests (both professional and personal topics mentioned)
-4. Communication style (direct/indirect, verbose/concise, use of language)
+${participantsData.map(p => `
+--- Participant: ${p.name} <${p.email}> ---
+${p.emails.map(email => `
+From: ${email.sender?.name} <${email.sender?.email}>
+Subject: ${email.subject}
+Body: ${email.body}
+`).join('---')}
+`).join('\n\n')}
 
-Emails:
-"""${combinedEmails}"""
-
-Provide a detailed analysis in JSON format. Be specific and avoid generic responses:
+For each participant, provide a detailed profile in the following format:
 {
-  "characteristics": "detailed description of personality traits and style",
-  "demeanor": "specific observations about tone and approach",
-  "interests": ["specific interest 1", "specific interest 2", "etc"],
-  "communication_style": "detailed analysis of communication patterns"
-}`;
-
-  try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert communication analyst. Return only valid JSON without any markdown formatting.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      max_tokens: 1500,
-      temperature: 0.7
-    });
-
-    const content = response.choices[0].message?.content?.trim() || '{}';
-    const cleanContent = cleanJsonResponse(content);
-    
-    try {
-      return JSON.parse(cleanContent);
-    } catch (parseError) {
-      console.error('Failed to parse JSON:', cleanContent);
-      return {
-        characteristics: 'Unable to analyze characteristics',
-        demeanor: 'Unable to analyze demeanor',
-        interests: ['Unable to determine interests'],
-        communication_style: 'Unable to analyze communication style'
-      };
-    }
-  } catch (error) {
-    console.error('Error generating profile:', error);
-    return {
-      characteristics: 'Unable to analyze characteristics',
-      demeanor: 'Unable to analyze demeanor',
-      interests: ['Unable to determine interests'],
-      communication_style: 'Unable to analyze communication style'
-    };
+  "email": "participant's email",
+  "profile": {
+    "characteristics": "detailed personality traits and style",
+    "demeanor": "specific observations about tone",
+    "interests": ["specific interests"],
+    "communication_style": "detailed communication patterns"
   }
 }
 
-async function analyzeRelationship(emails: any[]) {
-  const emailThreads = emails.map(email => `
-From: ${email.sender?.name || 'Unknown'} <${email.sender?.email || 'Unknown'}>
-To: ${email.recipients?.map((r: any) => `${r.name || 'Unknown'} <${r.email || 'Unknown'}>`).join(', ')}
-Subject: ${email.subject || 'No Subject'}
-Body: ${email.body}
----
-`).join('\n');
+Return an array of profiles for all participants.`;
 
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      {
+        role: 'system',
+        content: 'You are an expert communication analyst. Return only valid JSON array without markdown formatting.'
+      },
+      {
+        role: 'user',
+        content: prompt
+      }
+    ],
+    max_tokens: 4000,
+    temperature: 0.7
+  });
+
+  return JSON.parse(cleanJsonResponse(response.choices[0].message?.content || '[]'));
+}
+
+async function generateAllRelationships(relationships: Array<{person1: EmailParticipant, person2: EmailParticipant, emails: any[]}>) {
   const prompt = `
-As an expert in relationship dynamics and communication patterns, analyze these email exchanges to understand the relationship between the participants. Focus on:
+Analyze the relationships between the following pairs of participants:
 
-1. Shared Interests and Topics:
-   - Identify specific topics discussed
-   - Note recurring themes or projects
-   - Highlight common professional or personal interests
+${relationships.map(r => `
+--- Relationship: ${r.person1.name} <${r.person1.email}> and ${r.person2.name} <${r.person2.email}> ---
+${r.emails.map(email => `
+From: ${email.sender?.name} <${email.sender?.email}>
+To: ${email.recipients?.map((rec: any) => `${rec.name} <${rec.email}>`).join(', ')}
+Subject: ${email.subject}
+Body: ${email.body}
+`).join('---')}
+`).join('\n\n')}
 
-2. Personality Dynamics:
-   - How do their communication styles complement or contrast?
-   - What does their interaction reveal about their working relationship?
-   - Are there signs of hierarchy, collaboration, or friendship?
-
-3. Communication Pattern:
-   - Analyze response times and engagement
-   - Note the tone evolution across messages
-   - Identify signs of rapport or tension
-
-Emails:
-"""${emailThreads}"""
-
-Provide a detailed analysis in JSON format. Be specific and avoid generic responses:
+For each relationship pair, provide an analysis in the following format:
 {
-  "shared_interests": ["specific interest 1", "specific interest 2", "etc"],
-  "personality_overlaps": "detailed analysis of how their personalities interact",
-  "sense_of_humor": "specific observations about their rapport and humor style",
-  "interaction_quality": "detailed assessment of their relationship dynamics"
-}`;
-
-  try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert relationship analyst. Return only valid JSON without any markdown formatting.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      max_tokens: 1500,
-      temperature: 0.7
-    });
-
-    const content = response.choices[0].message?.content?.trim() || '{}';
-    const cleanContent = cleanJsonResponse(content);
-    
-    try {
-      return JSON.parse(cleanContent);
-    } catch (parseError) {
-      console.error('Failed to parse JSON:', cleanContent);
-      return {
-        shared_interests: ['Unable to determine shared interests'],
-        personality_overlaps: 'Unable to analyze personality dynamics',
-        sense_of_humor: 'Unable to analyze rapport',
-        interaction_quality: 'Unable to assess interaction quality'
-      };
-    }
-  } catch (error) {
-    console.error('Error analyzing relationships:', error);
-    return {
-      shared_interests: ['Unable to determine shared interests'],
-      personality_overlaps: 'Unable to analyze personality dynamics',
-      sense_of_humor: 'Unable to analyze rapport',
-      interaction_quality: 'Unable to assess interaction quality'
-    };
+  "participants": ["email1", "email2"],
+  "analysis": {
+    "shared_interests": ["specific interests"],
+    "personality_overlaps": "detailed analysis",
+    "sense_of_humor": "specific observations",
+    "interaction_quality": "detailed assessment"
   }
 }
 
+Return an array of relationship analyses for all pairs.`;
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      {
+        role: 'system',
+        content: 'You are an expert relationship analyst. Return only valid JSON array without markdown formatting.'
+      },
+      {
+        role: 'user',
+        content: prompt
+      }
+    ],
+    max_tokens: 4000,
+    temperature: 0.7
+  });
+
+  return JSON.parse(cleanJsonResponse(response.choices[0].message?.content || '[]'));
+}
+
+// Main route handler
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
   
@@ -176,63 +157,95 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await request.json();
+    const { emails } = await request.json();
+    const extractedEmails = await Promise.all(emails.map(extractEntities));
     
-    if (!body.emails || !Array.isArray(body.emails)) {
-      return NextResponse.json(
-        { error: 'Invalid request: emails array is required' },
-        { status: 400 }
-      );
-    }
-
-    const { emails } = body;
-
-    // First, extract email data
-    const extractionPromises = emails.map(async (email: any) => {
-      const emailText = extractEmailText(email);
-      const extractedData = await extractEntities(emailText);
-
-      // Save to database
-      const client = await clientPromise;
-      const db = client.db();
-      await db.collection('emails').insertOne({
-        ...extractedData,
-        raw: email,
-        userId: session.user?.id,
-        createdAt: new Date()
-      });
-
-      return extractedData;
+    // Deduplicate messages within threads
+    const threadMap = new Map();
+    extractedEmails.forEach(email => {
+      if (!threadMap.has(email.threadId)) {
+        threadMap.set(email.threadId, email);
+      }
     });
-
-    const extractedEmails = await Promise.all(extractionPromises);
-
-    // Generate user profile
-    const userProfile = await generateProfile(extractedEmails);
     
-    // Save profile
-    const client = await clientPromise;
-    const db = client.db();
-    await db.collection('profiles').updateOne(
-      { userId: session.user?.id },
-      { 
-        $set: {
-          ...userProfile,
-          updatedAt: new Date()
-        }
-      },
-      { upsert: true }
+    const uniqueEmails = Array.from(threadMap.values());
+    
+    // Get all unique participants
+    const participants = extractUniqueParticipants(uniqueEmails);
+    
+    // Generate profiles for each participant
+    const profiles = await Promise.all(
+      participants.map(async participant => {
+        // Filter emails where this person is sender or recipient
+        const relevantEmails = uniqueEmails.filter(email => 
+          email.sender?.email === participant.email ||
+          email.recipients?.some((r: any) => r.email === participant.email)
+        );
+        
+        const profile = await generateAllProfiles([participant], new Map([[participant.email, relevantEmails]]));
+        return {
+          participant,
+          profile
+        };
+      })
     );
 
-    // Analyze relationships
-    const relationships = await analyzeRelationship(extractedEmails);
+    // Generate relationship graph
+    const relationships = [];
+    for (let i = 0; i < participants.length; i++) {
+      for (let j = i + 1; j < participants.length; j++) {
+        const person1 = participants[i];
+        const person2 = participants[j];
+        
+        // Find emails between these two people
+        const relevantEmails = uniqueEmails.filter(email =>
+          (email.sender?.email === person1.email && 
+           email.recipients?.some((r: any) => r.email === person2.email)) ||
+          (email.sender?.email === person2.email && 
+           email.recipients?.some((r: any) => r.email === person1.email))
+        );
+        
+        if (relevantEmails.length > 0) {
+          const analysis = await generateAllRelationships([{
+            person1,
+            person2,
+            emails: relevantEmails
+          }]);
+          relationships.push({
+            participants: [person1, person2],
+            analysis: analysis[0] // Take first result since we're only analyzing one pair
+          });
+        }
+      }
+    }
+
+    // Save to database
+    const client = await clientPromise;
+    const db = client.db();
     
-    // Save relationship analysis
+    // Save all profiles
+    await Promise.all(profiles.map(({ participant, profile }) =>
+      db.collection('profiles').updateOne(
+        { email: participant.email },
+        { 
+          $set: {
+            ...profile,
+            name: participant.name,
+            email: participant.email,
+            userId: session.user?.id,
+            updatedAt: new Date()
+          }
+        },
+        { upsert: true }
+      )
+    ));
+    
+    // Save relationship graph
     await db.collection('relationships').updateOne(
       { userId: session.user?.id },
       { 
         $set: {
-          analysis: relationships,
+          relationships,
           updatedAt: new Date()
         }
       },
@@ -241,8 +254,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ 
       results: extractedEmails,
-      profile: userProfile,
-      relationships: relationships
+      profiles,
+      relationships
     });
     
   } catch (error: any) {
@@ -315,70 +328,35 @@ function extractEmailText(email: any): string {
   return decodedBody;
 }
 
-async function extractEntities(emailText: string) {
-  const prompt = `
-Extract the following information from the email below. Return ONLY valid JSON with this exact structure:
-{
-  "sender": { "name": "", "email": "" },
-  "recipients": [ { "name": "", "email": "" } ],
-  "date": "",
-  "subject": "",
-  "body": ""
+async function extractEntities(email: any) {
+  // Extract headers first
+  const headers = email.payload?.headers || [];
+  const getHeader = (name: string) => headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '';
+  
+  // Get body text using existing extractEmailText function
+  const bodyText = extractEmailText(email);
+
+  // Create structured email object directly without using OpenAI
+  return {
+    sender: extractEmailAddress(getHeader('from')),
+    recipients: extractEmailAddresses(getHeader('to')),
+    date: getHeader('date'),
+    subject: getHeader('subject'),
+    body: bodyText,
+    messageId: email.id,
+    threadId: email.threadId
+  };
 }
 
-Email:
-${emailText}`;
+// Helper functions to parse email addresses
+function extractEmailAddress(headerValue: string) {
+  const match = headerValue.match(/(.*?)\s*<?([^>]+@[^>]+)>?/);
+  return {
+    name: match ? match[1].trim().replace(/["']/g, '') : '',
+    email: match ? match[2].trim() : headerValue.trim()
+  };
+}
 
-  try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { 
-          role: 'system', 
-          content: 'You are a helpful assistant that extracts email information and returns it in valid JSON format only. Remove any markdown formatting.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      max_tokens: 1000,
-      temperature: 0,
-      response_format: { type: "json_object" } // Force JSON response
-    });
-
-    const content = response.choices[0].message?.content?.trim() || '{}';
-    
-    try {
-      // Clean the content string
-      const cleanContent = content
-        .replace(/^```json\s*/, '') // Remove leading ```json
-        .replace(/\s*```$/, '')     // Remove trailing ```
-        .trim();
-      
-      const parsed = JSON.parse(cleanContent);
-      
-      // Ensure all required fields exist
-      return {
-        sender: parsed.sender || { name: '', email: '' },
-        recipients: Array.isArray(parsed.recipients) ? parsed.recipients : [],
-        date: parsed.date || '',
-        subject: parsed.subject || '',
-        body: parsed.body || emailText
-      };
-    } catch (parseError) {
-      console.error('Failed to parse OpenAI response:', content);
-      // Return a valid fallback object
-      return {
-        sender: { name: '', email: '' },
-        recipients: [],
-        date: '',
-        subject: '',
-        body: emailText
-      };
-    }
-  } catch (error) {
-    console.error('OpenAI API error:', error);
-    throw new Error('Failed to process email content');
-  }
+function extractEmailAddresses(headerValue: string) {
+  return headerValue.split(/,\s*/).map(addr => extractEmailAddress(addr));
 }
