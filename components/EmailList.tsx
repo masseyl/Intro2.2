@@ -3,6 +3,25 @@
 import { useState } from 'react'
 import { useRelationshipsStore } from '../lib/store'
 import NetworkGraph from './NetworkGraph'
+import { useSession } from 'next-auth/react';
+
+// Function to call the API route
+async function generateEmbedding(messages: any[]) {
+  const response = await fetch('/api/generateEmbedding', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ messages }), // Send messages array
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to generate embedding');
+  }
+
+  const data = await response.json();
+  return data.embedding;
+}
 
 export default function EmailList() {
   const today = new Date();
@@ -23,6 +42,7 @@ export default function EmailList() {
   const [error, setError] = useState<string | null>(null)
   const [profiles, setProfiles] = useState<any[]>([])
   const [relationships, setRelationships] = useState<any[]>([])
+  const { data: session } = useSession();
 
   const fetchEmails = async (token?: string) => {
     setLoading(true)
@@ -54,7 +74,20 @@ export default function EmailList() {
       setPageToken(data.nextPageToken)
 
       if (messages.length > 0) {
-        await processEmailsWithAI(messages)
+        // Generate a single embedding for all message bodies using the API route
+        const embedding = await generateEmbedding(messages);
+        
+        // Upsert the authenticated user with their email chain
+        if (session?.user) {
+          const user = {
+            name: session.user.name,
+            emails: [session.user.email],
+            embedding: embedding
+          };
+          
+          await upsertUser(user);
+        }
+        await processEmailsWithAI(messages);
       }
     } catch (error) {
       console.error('Error fetching emails:', error)
@@ -127,6 +160,26 @@ export default function EmailList() {
       console.error('Error analyzing relationships:', error);
     }
   };
+
+  // Function to upsert a single user
+  const upsertUser = async (user: any) => {
+    try {
+      const response = await fetch('/api/users/upsert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ users: [user] }), // Send as an array for consistency
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upsert user');
+      }
+
+      console.log('User upserted successfully');
+    } catch (error) {
+      console.error('Error upserting user:', error);
+    }
+  };
+
 
   return (
     <div className="space-y-6">
