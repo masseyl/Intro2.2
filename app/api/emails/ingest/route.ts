@@ -64,7 +64,7 @@ async function fetchEmails(
     userId: 'me',
     q: `after:${startDate} before:${endDate}`,
     pageToken,
-    maxResults: 50,
+    maxResults: 500,
   });
 
   const messages = res.data.messages || [];

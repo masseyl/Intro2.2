@@ -11,19 +11,36 @@ const ForceGraph2D = dynamic(
 export default function NetworkGraph({ profiles, relationships }: any) {
   const graphRef = useRef();
 
-  const graphData = useMemo(() => ({
-    nodes: profiles.map((p: any) => ({
-      id: p.email,
-      name: p.name || p.email,
-      val: 1
-    })),
-    links: relationships.map((r: any) => ({
-      source: r.source,
-      target: r.target,
-      strength: r.relationship_strength.score,
-      label: `${r.shared_interests.join(', ')}`
-    }))
-  }), [profiles, relationships]);
+  const graphData = useMemo(() => {
+    const uniqueNodes = new Map();
+    profiles.forEach((p: any) => {
+      if (!uniqueNodes.has(p.email)) {
+        uniqueNodes.set(p.email, {
+          id: p.email,
+          name: p.name || p.email,
+          val: 1,
+        });
+      }
+    });
+
+    const uniqueLinks = new Map();
+    relationships.forEach((r: any) => {
+      const linkKey = `${r.source}->${r.target}`;
+      if (!uniqueLinks.has(linkKey)) {
+        uniqueLinks.set(linkKey, {
+          source: r.source,
+          target: r.target,
+          strength: r.relationship_strength.score,
+          label: `${r.shared_interests.join(', ')}`,
+        });
+      }
+    });
+
+    return {
+      nodes: Array.from(uniqueNodes.values()),
+      links: Array.from(uniqueLinks.values()),
+    };
+  }, [profiles, relationships]);
 
   const fgRef = useRef<ForceGraphMethods>();
 

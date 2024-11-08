@@ -108,7 +108,7 @@ export default function EmailList() {
       console.log(data)
       if (data.success && data.data) {
         const newProfiles = data.data.profiles;
-        setProfiles(prevProfiles => [...prevProfiles, ...newProfiles]);
+        updateProfiles(newProfiles);
 
         // Upsert profiles into the database
         await upsertProfiles(newProfiles);
@@ -180,6 +180,14 @@ export default function EmailList() {
     }
   };
 
+  // Function to update profiles without duplicates
+  const updateProfiles = (newProfiles: any[]) => {
+    setProfiles((prevProfiles) => {
+      const emailSet = new Set(prevProfiles.map(profile => profile.email));
+      const uniqueProfiles = newProfiles.filter(profile => !emailSet.has(profile.email));
+      return [...prevProfiles, ...uniqueProfiles];
+    });
+  };
 
   return (
     <div className="space-y-6">
