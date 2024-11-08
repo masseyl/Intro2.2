@@ -1,0 +1,495 @@
+[{
+  "_id": {
+    "$oid": "672d955008fb1136174e37fd"
+  },
+  "source": "ramblinbill@yahoo.com",
+  "target": "masseyl@gmail.com",
+  "connection_points": [
+    "Both individuals engage in political discussions.",
+    "They share a confrontational communication style."
+  ],
+  "emailCount": 16,
+  "lastInteraction": {
+    "$date": "2024-11-07T18:21:31.000Z"
+  },
+  "relationship_strength": {
+    "score": 3,
+    "reasoning": "The relationship is marked by frequent confrontational exchanges and sarcasm, indicating a contentious dynamic rather than a supportive one."
+  },
+  "shared_interests": [
+    "politics"
+  ],
+  "updatedAt": {
+    "$date": "2024-11-08T07:46:54.433Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "672d955208fb1136174e3ee1"
+  },
+  "target": "wsimone.ds@gmail.com",
+  "source": "masseyl@gmail.com",
+  "connection_points": [],
+  "emailCount": 3,
+  "lastInteraction": {
+    "$date": "2024-11-07T15:13:05.000Z"
+  },
+  "relationship_strength": {
+    "score": 3,
+    "reasoning": "The relationship appears to be minimal based on the available email interactions, which are brief and lack depth. Lance's assertive and opinionated style contrasts with William's concise and informal approach, suggesting potential communication barriers."
+  },
+  "shared_interests": [],
+  "updatedAt": {
+    "$date": "2024-11-08T07:46:56.323Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "672d955408fb1136174e458a"
+  },
+  "source": "masseyl@gmail.com",
+  "target": "garrett@garrettdunham.com",
+  "connection_points": [
+    "Both are interested in technology and AI-related fields.",
+    "Garrett's collaborative approach may complement Lance's assertive communication style."
+  ],
+  "emailCount": 2,
+  "lastInteraction": {
+    "$date": "2024-11-07T15:07:21.000Z"
+  },
+  "relationship_strength": {
+    "score": 7,
+    "reasoning": "While their interests align in technology and AI, their communication styles differ, which may lead to productive discussions but also potential conflicts."
+  },
+  "shared_interests": [
+    "AI technologies",
+    "technology development"
+  ],
+  "updatedAt": {
+    "$date": "2024-11-08T07:46:58.582Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "672d955608fb1136174e4d18"
+  },
+  "target": "tconnors@gmail.com",
+  "source": "masseyl@gmail.com",
+  "connection_points": [
+    "Both are involved in software development and project management.",
+    "They communicate directly and value clear updates and collaboration on tech projects."
+  ],
+  "emailCount": 23, 
+  "lastInteraction": {
+    "$date": "2024-11-07T10:12:12.000Z"
+  },
+  "relationship_strength": {
+    "score": 7,
+    "reasoning": "Both individuals have complementary communication styles and interests that allow for effective collaboration, but there are some differences in their approach that may lead to occasional friction."
+  },
+  "shared_interests": [
+    "software development",
+    "project management",
+    "collaboration on tech projects"
+  ],
+  "updatedAt": {
+    "$date": "2024-11-08T07:47:00.762Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "672d955808fb1136174e53a4"
+  },
+  "source": "masseyl@gmail.com",
+  "target": "information@resortoptionsinternational.com",
+  "connection_points": [
+    "Lance is engaging with a professional service regarding timeshare rental/resale.",
+    "Both parties communicate effectively, with Lance being direct and Melissa being informative."
+  ],
+  "emailCount": 3,
+  "lastInteraction": {
+    "$date": "2024-11-06T19:27:39.000Z"
+  },
+  "relationship_strength": {
+    "score": 6,
+    "reasoning": "The interaction is primarily transactional, with a focus on timeshare marketing services. While there is effective communication, the relationship lacks personal connection or deeper shared interests beyond the professional context."
+  },
+  "shared_interests": [
+    "timeshare marketing"
+  ],
+  "updatedAt": {
+    "$date": "2024-11-08T07:47:10.319Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "672d955c08fb1136174e5ca9"
+  },
+  "target": "mike@movipods.com",
+  "source": "masseyl@gmail.com",
+  "connection_points": [
+    "Both are working on the 'Blood Pact' project which combines music and storytelling.",
+    "Lance provides creative input and raw footage while Mike handles project management and technical aspects."
+  ],
+  "emailCount": 6,
+  "lastInteraction": {
+    "$date": "2024-11-05T23:30:57.000Z"
+  },
+  "relationship_strength": {
+    "score": 8,
+    "reasoning": "They have a collaborative working relationship with open communication and shared goals in the creative project, indicating a strong professional bond."
+  },
+  "shared_interests": [
+    "AI technologies",
+    "music production"
+  ],
+  "updatedAt": {
+    "$date": "2024-11-08T07:47:07.494Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "672d956208fb1136174e6daf"
+  },
+  "source": "garrett@garrettdunham.com",
+  "target": "tconnors@gmail.com",
+  "connection_points": [
+    "Both exhibit a direct and collaborative communication style.",
+    "Both are entrepreneurial and supportive leaders in their respective fields."
+  ],
+  "emailCount": 6,
+  "lastInteraction": {
+    "$date": "2024-11-07T15:07:21.000Z"
+  },
+  "relationship_strength": {
+    "score": 8,
+    "reasoning": "Garrett and Tim have a strong collaborative relationship through shared goals in tech projects and startups, evidenced by their engaging email interactions and mutual support for each other's ideas."
+  },
+  "shared_interests": [
+    "collaboration on tech projects",
+    "building startups",
+    "leveraging AI and coding solutions"
+  ],
+  "updatedAt": {
+    "$date": "2024-11-08T07:47:13.945Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "672daceb08fb11361798552d"
+  },
+  "source": "masseyl@gmail.com",
+  "target": "toshe@futureai.com",
+  "connection_points": [
+    "Both are focused on technical details and clarification in their communication.",
+    "They are involved in a collaborative project requiring detailed technical exchange."
+  ],
+  "emailCount": 2,
+  "lastInteraction": {
+    "$date": "2024-11-04T18:42:20.000Z"
+  },
+  "relationship_strength": {
+    "score": 7,
+    "reasoning": "Both individuals demonstrate a high level of collaboration and shared interests in technical projects, indicating a strong professional relationship. However, the relationship's strength is moderated by the fact that their interactions primarily revolve around project-related communication rather than personal rapport."
+  },
+  "shared_interests": [
+    "API integration"
+  ],
+  "updatedAt": {
+    "$date": "2024-11-08T06:53:45.258Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "672dacf208fb113617986c06"
+  },
+  "target": "brooke@catholicowned.com",
+  "source": "masseyl@gmail.com",
+  "connection_points": [
+    "Both are engaged in professional communication regarding invoicing.",
+    "Lance is seeking clarification and assistance with accounting software."
+  ],
+  "emailCount": 6,
+  "lastInteraction": {
+    "$date": "2024-11-02T08:06:03.000Z"
+  },
+  "relationship_strength": {
+    "score": 6,
+    "reasoning": "The relationship is built on professional interactions related to invoicing, with Lance seeking help from Brooke, indicating a reliance on each other's expertise."
+  },
+  "shared_interests": [],
+  "updatedAt": {
+    "$date": "2024-11-08T06:53:53.222Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "672dacf408fb1136179875d5"
+  },
+  "source": "masseyl@gmail.com",
+  "target": "Lee@futureai.com",
+  "connection_points": [
+    "Both are detail-oriented and proactive in their communication.",
+    "They both focus on user data privacy and efficient coding practices."
+  ],
+  "emailCount": 3,
+  "lastInteraction": {
+    "$date": "2024-11-01T17:51:18.000Z"
+  },
+  "relationship_strength": {
+    "score": 8,
+    "reasoning": "Lance and Lee have a strong collaborative relationship, as evidenced by their direct communication and shared goals in software development projects. They respect each other's expertise, leading to productive discussions."
+  },
+  "shared_interests": [
+    "collaboration on tech projects",
+    "data management"
+  ],
+  "updatedAt": {
+    "$date": "2024-11-08T06:53:59.826Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "672dacf708fb113617987efc"
+  },
+  "target": "wsimone.ds@gmail.com",
+  "source": "tconnors@gmail.com",
+  "connection_points": [],
+  "emailCount": 5,
+  "lastInteraction": {
+    "$date": "2024-11-04T17:43:38.000Z"
+  },
+  "relationship_strength": {
+    "score": 4,
+    "reasoning": "While both individuals communicate concisely, their lack of shared interests and differing personality traits suggest a limited but functional working relationship."
+  },
+  "shared_interests": [],
+  "updatedAt": {
+    "$date": "2024-11-08T06:54:01.671Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "672dad6508fb11361799ddbe"
+  },
+  "target": "ramblinbill@yahoo.com",
+  "source": "masseyl@gmail.com",
+  "connection_points": [
+    "Both are interested in political discussions and current events.",
+    "Their communication styles are both concise and direct."
+  ],
+  "emailCount": 15,
+  "lastInteraction": {
+    "$date": "2024-08-08T23:52:46.000Z"
+  },
+  "relationship_strength": {
+    "score": 6,
+    "reasoning": "While both individuals share similar interests in politics and current events, their differing personality traits may lead to more combative exchanges, which could impact the overall strength of their relationship."
+  },
+  "shared_interests": [
+    "politics",
+    "current events"
+  ],
+  "updatedAt": {
+    "$date": "2024-11-08T07:42:51.255Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "672dad6d08fb11361799fc3d"
+  },
+  "source": "masseyl@gmail.com",
+  "target": "dana@futureai.com",
+  "connection_points": [
+    "collaborative communication style",
+    "focus on technical requirements"
+  ],
+  "emailCount": 2,
+  "lastInteraction": {
+    "$date": "2024-10-26T01:29:51.000Z"
+  },
+  "relationship_strength": {
+    "score": 7,
+    "reasoning": "Both individuals engage in concise communication and share a common interest in software development, which facilitates collaboration on technical projects. Their interactions indicate a professional relationship that is effective but could benefit from deeper personal rapport."
+  },
+  "shared_interests": [
+    "software development"
+  ],
+  "updatedAt": {
+    "$date": "2024-11-08T06:20:46.288Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "672dad7308fb1136179a0ca4"
+  },
+  "source": "dana@futureai.com",
+  "target": "garrett@garrettdunham.com",
+  "connection_points": [
+    "Both are involved in the technology sector.",
+    "They engage in collaborative discussions regarding project management and software development."
+  ],
+  "emailCount": 4,
+  "lastInteraction": {
+    "$date": "2024-10-28T18:27:14.000Z"
+  },
+  "relationship_strength": {
+    "score": 6,
+    "reasoning": "While they do not share specific interests, their communication is consistent and professional, indicating a working relationship that is constructive and goal-oriented."
+  },
+  "shared_interests": [],
+  "updatedAt": {
+    "$date": "2024-11-08T06:19:31.872Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "672dadcd08fb1136179b203f"
+  },
+  "source": "masseyl@gmail.com",
+  "target": "rafael@mytickets.com",
+  "connection_points": [
+    "Both communicate directly and concisely.",
+    "Both have analytical and collaborative personality traits."
+  ],
+  "emailCount": 3,
+  "lastInteraction": {
+    "$date": "2024-10-23T15:11:21.000Z"
+  },
+  "relationship_strength": {
+    "score": 7,
+    "reasoning": "They share common interests in software development and exhibit similar communication styles and personality traits, suggesting a strong professional rapport."
+  },
+  "shared_interests": [
+    "software development"
+  ],
+  "updatedAt": {
+    "$date": "2024-11-08T06:21:01.344Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "672dadd008fb1136179b296f"
+  },
+  "source": "garrett@garrettdunham.com",
+  "target": "dana@futureai.com",
+  "connection_points": [
+    "Both focus on technical solutions and scheduling",
+    "Collaborative communication style"
+  ],
+  "emailCount": 3,
+  "lastInteraction": {
+    "$date": "2024-10-26T02:43:04.000Z"
+  },
+  "relationship_strength": {
+    "score": 8,
+    "reasoning": "Garrett and Dana have a strong working relationship characterized by direct and concise communication, shared professional interests, and collaborative efforts toward project goals."
+  },
+  "shared_interests": [
+    "Software Development",
+    "API integration"
+  ],
+  "updatedAt": {
+    "$date": "2024-11-08T06:21:04.061Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "672dadd208fb1136179b3046"
+  },
+  "source": "garrett@garrettdunham.com",
+  "target": "Lee@futureai.com",
+  "connection_points": [
+    "Both are focused on technical solutions and integration.",
+    "Direct communication style allows for efficient collaboration."
+  ],
+  "emailCount": 3,
+  "lastInteraction": {
+    "$date": "2024-10-26T00:30:59.000Z"
+  },
+  "relationship_strength": {
+    "score": 8,
+    "reasoning": "They have a strong collaborative dynamic, share technical interests, and demonstrate proactive communication in their email interactions."
+  },
+  "shared_interests": [
+    "OAuth2 Integration",
+    "API integration"
+  ],
+  "updatedAt": {
+    "$date": "2024-11-08T06:21:06.222Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "672dadd808fb1136179b40ea"
+  },
+  "target": "toshe@futureai.com",
+  "source": "garrett@garrettdunham.com",
+  "connection_points": [
+    "Both have a direct and concise communication style.",
+    "Garrett's focus on technical solutions may align with Toshe's professional approach."
+  ],
+  "emailCount": 2,
+  "lastInteraction": {
+    "$date": "2024-10-23T16:49:23.000Z"
+  },
+  "relationship_strength": {
+    "score": 5,
+    "reasoning": "While both individuals communicate effectively and have a professional demeanor, there are no shared interests, which may limit deeper connections."
+  },
+  "shared_interests": [],
+  "updatedAt": {
+    "$date": "2024-11-08T06:21:11.907Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "672dadda08fb1136179b4bf5"
+  },
+  "source": "dana@futureai.com",
+  "target": "Lee@futureai.com",
+  "connection_points": [
+    "Both have a focus on API integration, indicating a common technical interest.",
+    "Their communication styles are both collaborative, suggesting effective teamwork."
+  ],
+  "emailCount": 2,
+  "lastInteraction": {
+    "$date": "2024-10-26T00:30:59.000Z"
+  },
+  "relationship_strength": {
+    "score": 7,
+    "reasoning": "They have overlapping interests and communicate effectively, which enhances their collaboration. However, there's limited evidence of personal rapport."
+  },
+  "shared_interests": [
+    "API integration",
+    "User authentication"
+  ],
+  "updatedAt": {
+    "$date": "2024-11-08T06:21:14.412Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "672dadde08fb1136179b5788"
+  },
+  "target": "tconnors@gmail.com",
+  "source": "Lee@futureai.com",
+  "connection_points": [
+    "Both individuals have a proactive approach to their work.",
+    "They both exhibit detail-oriented personality traits, which can enhance their collaboration."
+  ],
+  "emailCount": 1,
+  "lastInteraction": {
+    "$date": "2024-10-26T00:11:26.000Z"
+  },
+  "relationship_strength": {
+    "score": 7,
+    "reasoning": "Lee and Tim have complementary communication styles, both being direct and focused on clarity. Their shared interest in API integration suggests a strong basis for collaboration, supported by their proactive and detail-oriented traits."
+  },
+  "shared_interests": [
+    "API integration"
+  ],
+  "updatedAt": {
+    "$date": "2024-11-08T06:21:18.004Z"
+  }
+}]

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 
 const ForceGraph2D = dynamic(
@@ -8,86 +8,75 @@ const ForceGraph2D = dynamic(
   { ssr: false }
 );
 
-export default function NetworkGraph({ profiles, relationships }: any) {
-  const graphRef = useRef();
+interface NetworkGraphProps {
+  refreshTrigger: number;
+}
 
-  const graphData = useMemo(() => {
-    const uniqueNodes = new Map();
-    profiles.forEach((p: any) => {
-      if (!uniqueNodes.has(p.email)) {
-        uniqueNodes.set(p.email, {
-          id: p.email,
-          name: p.name || p.email,
-          val: 1,
-        });
-      }
-    });
+interface GraphData {
+  nodes: Array<{
+    id: string;
+    label: string;
+  }>;
+  edges: Array<{
+    source: string;
+    target: string;
+    value: number;
+    strength: number;
+    connection_points: string[];
+  }>;
+}
 
-    const uniqueLinks = new Map();
-    relationships.forEach((r: any) => {
-      const linkKey = `${r.source}->${r.target}`;
-      if (!uniqueLinks.has(linkKey)) {
-        uniqueLinks.set(linkKey, {
-          source: r.source,
-          target: r.target,
-          strength: r.relationship_strength.score,
-          label: `${r.shared_interests.join(', ')}`,
-        });
-      }
-    });
+export default function NetworkGraph({ refreshTrigger }: NetworkGraphProps) {
+  const [graphData, setGraphData] = useState<GraphData>({ nodes: [], edges: [] });
+  const fgRef = useRef();
 
-    return {
-      nodes: Array.from(uniqueNodes.values()),
-      links: Array.from(uniqueLinks.values()),
-    };
-  }, [profiles, relationships]);
-
-  const fgRef = useRef<ForceGraphMethods>();
-
+  // Fetch graph data from the existing endpoint
   useEffect(() => {
-    if (fgRef.current) {
-      fgRef.current.pauseAnimation();
-    }
-
-    return () => {
-      if (fgRef.current) {
-        fgRef.current.pauseAnimation();
+    const fetchGraphData = async () => {
+      try {
+        const response = await fetch('/api/graph');
+        const data = await response.json();
+        console.log('Fetched graph data:', data);
+        setGraphData(data);
+      } catch (error) {
+        console.error('Error fetching graph data:', error);
       }
     };
-  }, []);
+
+    fetchGraphData();
+  }, [refreshTrigger]);
 
   return (
-    <div className="h-[600px] border rounded-lg">
+    <div className="h-[600px] border rounded-lg bg-white">
       <ForceGraph2D
         ref={fgRef}
-        graphData={graphData}
-        nodeCanvasObject={(node: any, ctx) => {
-            // Draw the node circle
-            ctx.beginPath();
-            ctx.arc(node.x, node.y, 6, 0, 2 * Math.PI);
-            ctx.fillStyle = '#69b3a2';
-            ctx.fill();
+        graphData={{
+          nodes: graphData.nodes,
+          links: graphData.edges // ForceGraph expects 'links' instead of 'edges'
+        }}
+        nodeLabel={node => (node as any).label}
+        nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D) => {
+          // Draw node circle
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, 5, 0, 2 * Math.PI);
+          ctx.fillStyle = '#4CAF50';
+          ctx.fill();
 
-            const label = node.name;
-          const fontSize = 2;
-          ctx.font = `${fontSize}px Sans-Serif`;
+          // Draw node label
+          ctx.font = '4px Arial';
           ctx.fillStyle = '#000';
           ctx.textAlign = 'center';
-          ctx.fillText(label, node.x, node.y + 8);
-          
+          ctx.fillText(node.label || '', node.x, node.y + 8);
         }}
-        linkLabel={(link: any) => link.label}
-        linkWidth={(link: any) => (link.strength || 1) / 2}
-        nodeRelSize={6}
+        linkLabel={(link: any) => 
+          `Strength: ${link.strength}\nEmails: ${link.value}\n\nConnection Points: ${link.connection_points?.join(', ') || 'None'}`
+        }
+        linkWidth={(link: any) => Math.sqrt(link.value || 1) * 0.5}
+        linkColor={() => '#999'}
         linkDirectionalParticles={2}
         linkDirectionalParticleWidth={2}
         d3VelocityDecay={0.3}
         cooldownTicks={100}
-        onEngineStop={() => {
-          if (fgRef.current) {
-            fgRef.current.pauseAnimation();
-          }
-        }}
       />
     </div>
   );

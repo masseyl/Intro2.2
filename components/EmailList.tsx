@@ -40,9 +40,17 @@ export default function EmailList() {
   const [processedEmails, setProcessedEmails] = useState<any[]>([])
   const [relationshipProgress, setRelationshipProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
-  const [profiles, setProfiles] = useState<any[]>([])
-  const [relationships, setRelationships] = useState<any[]>([])
+  const [profiles, setProfiles] = useState<any[]>([]);
   const { data: session } = useSession();
+  const [graphRefreshTrigger, setGraphRefreshTrigger] = useState(0);
+
+  const updateProfiles = (newProfiles: any[]) => {
+    setProfiles(prevProfiles => {
+      const emailMap = new Map(prevProfiles.map(p => [p.email, p]));
+      newProfiles.forEach(profile => emailMap.set(profile.email, profile));
+      return Array.from(emailMap.values());
+    });
+  };
 
   const fetchEmails = async (token?: string) => {
     setLoading(true)
@@ -108,12 +116,14 @@ export default function EmailList() {
       console.log(data)
       if (data.success && data.data) {
         const newProfiles = data.data.profiles;
+        
+        // Update local profiles for UI display
         updateProfiles(newProfiles);
 
         // Upsert profiles into the database
         await upsertProfiles(newProfiles);
 
-        // Pass both the new profiles and their corresponding emails
+        // Analyze and store relationships in the database
         await analyzeRelationships(newProfiles, emails);
       }
     } catch (error) {
@@ -148,14 +158,16 @@ export default function EmailList() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           profiles,
-          emails: emailsToAnalyze // Pass the actual emails we're analyzing
+          emails: emailsToAnalyze
         }),
       });
       
       const data = await response.json();
-      if (data.success) {
-        setRelationships(data.relationships);
+      if (!data.success) {
+        throw new Error('Failed to analyze relationships');
       }
+      // Trigger graph refresh after successful analysis
+      setGraphRefreshTrigger(prev => prev + 1);
     } catch (error) {
       console.error('Error analyzing relationships:', error);
     }
@@ -178,15 +190,6 @@ export default function EmailList() {
     } catch (error) {
       console.error('Error upserting user:', error);
     }
-  };
-
-  // Function to update profiles without duplicates
-  const updateProfiles = (newProfiles: any[]) => {
-    setProfiles((prevProfiles) => {
-      const emailSet = new Set(prevProfiles.map(profile => profile.email));
-      const uniqueProfiles = newProfiles.filter(profile => !emailSet.has(profile.email));
-      return [...prevProfiles, ...uniqueProfiles];
-    });
   };
 
   return (
@@ -294,7 +297,7 @@ export default function EmailList() {
       {profiles.length > 0 && (
         <div className="mt-8">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Relationship Network</h3>
-          <NetworkGraph profiles={profiles} relationships={relationships} />
+          <NetworkGraph refreshTrigger={graphRefreshTrigger} />
         </div>
       )}
     </div>

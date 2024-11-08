@@ -1,4 +1,5 @@
 import Link from "next/link";
+import RelationshipGraph from '@/components/RelationshipGraph'
 
 export default function Home() {
   return (
@@ -16,19 +17,11 @@ export default function Home() {
           </button>
         </div>
       </header>
-      <main className="flex flex-col items-center mt-10">
-        <h2 className="text-3xl font-semibold text-white">
-          Welcome to Your Email Network
+      <main className="flex flex-col items-center mt-10 w-full max-w-7xl px-4">
+        <h2 className="text-3xl font-semibold text-white mb-8">
+          Your Email Network
         </h2>
-        <p className="mt-4 text-lg text-gray-300 text-center">
-          Visualize and analyze your email relationships to gain insights into your professional network.
-        </p>
-        <Link
-          href="/dashboard"
-          className="mt-6 inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-150"
-        >
-          Go to Dashboard
-        </Link>
+        <RelationshipGraph />
       </main>
     </div>
   );
