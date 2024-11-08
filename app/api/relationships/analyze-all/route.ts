@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import DatabaseService from '../../services/databaseService';
+import { COLLECTIONS } from '../../../../lib/consts';
 
 // Initialize the OpenAI client with your API key
 const openai = new OpenAI({
@@ -15,21 +17,12 @@ function extractEmail(emailString: string): string {
 export async function POST(request: Request) {
   try {
     const { profiles, emails } = await request.json();
-    console.log('Received:', { 
-      profileCount: profiles.length, 
-      emailCount: emails.length 
-    });
     
     const relationships = [];
     
     // Create interaction map
     const interactionMap = new Map();
     emails.forEach(email => {
-      console.log('Processing email:', { 
-        from: email.from, 
-        to: email.to,
-        subject: email.subject 
-      });
       
       const sender = extractEmail(email.from);
       const recipients = Array.isArray(email.to) ? email.to : [email.to];
@@ -51,8 +44,6 @@ export async function POST(request: Request) {
       });
     });
 
-    console.log('Interaction map size:', interactionMap.size);
-    console.log('Interaction pairs:', Array.from(interactionMap.keys()));
 
     // Generate relationships for each profile pair
     for (let i = 0; i < profiles.length; i++) {
@@ -60,10 +51,6 @@ export async function POST(request: Request) {
         const personA = profiles[i];
         const personB = profiles[j];
         
-        console.log('Analyzing pair:', {
-          personA: personA.email,
-          personB: personB.email
-        });
         
         // Get interactions between this pair using just email addresses
         const pairKey = [
@@ -73,10 +60,8 @@ export async function POST(request: Request) {
         
         const interactions = interactionMap.get(pairKey) || [];
 
-        console.log('Found interactions:', interactions.length);
 
         if (interactions.length === 0) {
-          console.log('Skipping pair - no interactions:', pairKey);
           continue;
         }
 
@@ -123,13 +108,46 @@ Return as JSON:
         try {
           const content = response.choices[0].message?.content || '{}';
           relationship = JSON.parse(content.trim());
-        } catch (e) {
-          console.error('Failed to parse relationship JSON:', content);
-          throw new Error('Invalid relationship data returned');
-        }
+          
+          // Generate embedding for the relationship
+          const embeddingResponse = await openai.embeddings.create({
+            model: "text-embedding-3-small",
+            input: JSON.stringify({
+              shared_interests: relationship.shared_interests,
+              connection_points: relationship.connection_points,
+              relationship_description: relationship.description
+            })
+          });
 
-        relationships.push(relationship);
-        console.log('Added relationship:', relationship);
+
+          const db = await DatabaseService.getInstance();
+          const result = await db.collection(COLLECTIONS.RELATIONSHIPS).updateOne(
+            {
+              source: relationship.source,
+              target: relationship.target
+            },
+            {
+              $set: {
+                ...relationship,
+                embedding: embeddingResponse.data[0].embedding,
+                emailCount: interactions.length,
+                lastInteraction: new Date(Math.max(...interactions.map(i => new Date(i.date).getTime()))),
+                updatedAt: new Date()  // Add this to track when records are updated
+              }
+            },
+            { upsert: true }
+          );
+
+          relationships.push(relationship);
+        } catch (e) {
+          // Enhance error logging
+          console.error('Database operation error:', {
+            error: e,
+            relationship: relationship,
+            stack: e.stack
+          });
+          throw e;
+        }
       }
     }
 

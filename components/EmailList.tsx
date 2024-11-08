@@ -71,18 +71,40 @@ export default function EmailList() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ emails }),
       });
-
       const data = await response.json();
+      console.log(data)
       if (data.success && data.data) {
-        const newProfiles = data.data;
+        const newProfiles = data.data.profiles;
         setProfiles(prevProfiles => [...prevProfiles, ...newProfiles]);
-        
+
+        // Upsert profiles into the database
+        await upsertProfiles(newProfiles);
+
         // Pass both the new profiles and their corresponding emails
         await analyzeRelationships(newProfiles, emails);
       }
     } catch (error) {
       console.error('Error processing emails with AI:', error);
       setError(error.message);
+    }
+  };
+
+  // Function to upsert profiles
+  const upsertProfiles = async (profiles: any[]) => {
+    try {
+      const response = await fetch('/api/users/generate-profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profiles }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upsert profiles');
+      }
+
+      console.log('Profiles upserted successfully');
+    } catch (error) {
+      console.error('Error upserting profiles:', error);
     }
   };
 

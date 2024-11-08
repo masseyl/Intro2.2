@@ -1,79 +1,41 @@
 import { NextResponse } from 'next/server';
-import clientPromise from '../../../../lib/mongodb';
-import { Configuration, OpenAIApi } from 'openai';
-import { ObjectId } from 'mongodb';
+import DatabaseService from '../../services/databaseService';
+import { COLLECTIONS } from '../../../../lib/consts';
 
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY!,
-});
-const openai = new OpenAIApi(configuration);
-
-export async function POST() {
+export async function POST(request: Request) {
   try {
-    const client = await clientPromise;
-    const db = client.db();
+    const dbService = await DatabaseService.getInstance();
+    console.log('Database service initialized');
 
-    const users = await db.collection('users').find().toArray();
+    // Assume profiles are sent in the request body
+    const { profiles } = await request.json();
 
-    const profilePromises = users.map(async (user) => {
-      const emails = await db
-        .collection('emails')
-        .find({ 'sender.email': user.email })
-        .toArray();
+    if (!profiles || profiles.length === 0) {
+      console.log('No profiles provided');
+      return NextResponse.json({ message: 'No profiles to upsert' }, { status: 400 });
+    }
 
-      if (emails.length === 0) {
-        return null;
-      }
+    const upsertPromises = profiles.map(async (profile: any) => {
+      console.log(`Upserting profile for user: ${profile.email}`);
 
-      const profile = await generateProfile(emails);
+      const upsertData = {
+        ...profile,
+        updatedAt: new Date()
+      };
 
-      // Save profile to users collection
-      await db.collection('users').updateOne(
-        { _id: new ObjectId(user._id) },
-        { $set: { profile, updatedAt: new Date() } }
+      const result = await dbService.collection(COLLECTIONS.PROFILES).updateOne(
+        { email: profile.email },
+        { $set: upsertData },
+        { upsert: true }
       );
-
-      return profile;
+      console.log('Database update result:', result);
     });
 
-    await Promise.all(profilePromises);
+    await Promise.all(upsertPromises);
 
-    return NextResponse.json({ message: 'User profiles generated successfully' });
+    return NextResponse.json({ message: 'Profiles upserted successfully' });
   } catch (error: any) {
-    console.error('Error generating profiles:', error);
+    console.error('Error upserting profiles:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-}
-
-async function generateProfile(emails: any[]) {
-  const combinedEmails = emails.map(email => email.body).join('\n\n');
-  const prompt = `
-Based on the following email texts, create a profile for the user including:
-
-- Personal characteristics
-- General demeanor and tone
-- Interests
-- Communication style
-
-Emails:
-"""${combinedEmails}"""
-
-Provide the profile in JSON format:
-{
-  "characteristics": "",
-  "demeanor": "",
-  "interests": [],
-  "communication_style": ""
-}
-`;
-
-  const response = await openai.createCompletion({
-    model: 'text-davinci-003',
-    prompt: prompt,
-    max_tokens: 500,
-    temperature: 0,
-  });
-
-  const profile = JSON.parse(response.data.choices[0].text.trim());
-  return profile;
 }

@@ -1,0 +1,46 @@
+export interface User {
+  email: string;
+  name: string;
+  profile: {
+    characteristics: string;
+    demeanor: string;
+    interests: string[];
+    communication_style: string;
+  }
+}
+
+export interface Relationship {
+  userAId: string;  // email address
+  userBId: string;  // email address
+  shared_interests: string[];
+  connection_points: string[];
+  relationship_strength: {
+    score: number;
+    reasoning: string;
+  }
+  lastAnalyzed: Date;
+  emailCount: number;
+}
+
+export interface RawEmail {
+  messageId: string;
+  threadId: string;
+  from: string;
+  to: string[];
+  subject: string;
+  body: string;
+  snippet: string;
+  date: Date;
+  batchId: string;  // to track which analysis batch this came from
+  analyzed: boolean;  // flag for whether it's been processed for embeddings
+}
+
+export interface EmailBatch {
+  id: string;
+  startDate: Date;
+  endDate: Date;
+  processedAt: Date;
+  emailCount: number;
+  status: 'pending' | 'processed' | 'failed';
+  error?: string;
+}

@@ -62,22 +62,6 @@ async function getSentEmails(startDate: string, endDate: string) {
     .toArray();
 }
 
-async function getInboxEmails(startDate: string, endDate: string) {
-  const client = await clientPromise;
-  const db = client.db();
-  return db.collection('emails')
-    .find({
-      type: 'inbox',
-      date: { $gte: new Date(startDate), $lte: new Date(endDate) }
-    })
-    .toArray();
-}
-
-async function getEmails(startDate: string, endDate: string) {
-  const sentEmails = await getSentEmails(startDate, endDate);
-  const inboxEmails = await getInboxEmails(startDate, endDate);
-  return [...sentEmails, ...inboxEmails];
-}
 
 // Add this helper function
 function getSenderInfo(email: any) {
@@ -234,7 +218,7 @@ export async function POST(request: Request) {
       }
     }
     
-    return NextResponse.json({ success: true, data: profiles });
+    return NextResponse.json({ success: true, data: {profiles, emails} });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 400 });
   }

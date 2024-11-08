@@ -1,4 +1,5 @@
 import { MongoClient } from 'mongodb'
+import { COLLECTIONS } from './consts';
 
 const uri = process.env.MONGODB_URI as string; // Ensure it's treated as a string
 const options = {}
@@ -23,12 +24,12 @@ if (process.env.NODE_ENV === 'development') {
 
 export async function getRelationships() {
   const client = await clientPromise
-  const db = client.db('your_database_name') // Replace with your database name
-  return db.collection('relationships').find({}).toArray()
+  const db = client.db(process.env.MONGODB_NAME || "MagicCRM") // Replace with your database name
+  return db.collection(COLLECTIONS.RELATIONSHIPS).find({}).toArray()
 }
 
 export async function addRelationship(relationship: { [key: string]: any }) { // Define the type as needed
   const client = await clientPromise
-  const db = client.db('your_database_name') // Replace with your database name
-  return db.collection('relationships').insertOne(relationship)
+  const db = client.db(process.env.MONGODB_NAME || "MagicCRM") // Replace with your database name
+  return db.collection(COLLECTIONS.RELATIONSHIPS).insertOne(relationship)
 }
